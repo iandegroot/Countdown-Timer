@@ -1,2 +1,2 @@
 # Countdown-Timer
-A simple timer that counts down to 0.
+A simple timer written using Pygame that counts down to 0.
