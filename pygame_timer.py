@@ -1,8 +1,8 @@
 import pygame, sys
 from pygame.locals import *
 
-if len(sys.argv) != 2:
-    print("Error: Expecting the time in seconds as an argument.")
+if len(sys.argv) > 1:
+    print("Error: No arguments are expected.")
     sys.exit()
 
 # Define constants
@@ -16,22 +16,25 @@ SECS_IN_MIN = 60
 
 TOP_RIGHT_COORDS = (0, 0)
 
+NUMBERS = [K_0, K_1, K_2, K_3, K_4, K_5, K_6, K_7, K_8, K_9]
+
 # Set up pygame
 pygame.init()
 
 # Timer class that will contain everything needed to create a countdown timer
 class Timer:
 
-    def __init__(self, secs):
+    def __init__(self):
         self.width = 230
         self.height = 50
         self.display = pygame.display.set_mode((self.width, self.height))
-        self.init_counter_value_in_secs = secs
+        self.init_counter_value_in_secs = 0
         self.counter_value_in_secs = self.init_counter_value_in_secs
         self.count_font = pygame.font.SysFont("couriernew", 48)
         self.background_color = BLACK
         self.start_ticks = 0
         self.in_count_mode = False
+        self.in_setting_mode = False
 
     def update_time(self):
         self.update_display(self.calculate_new_time())
@@ -43,20 +46,45 @@ class Timer:
         if self.counter_value_in_secs == 0:
             self.background_color = RED
             self.in_count_mode = False
-        minutes, seconds = divmod(self.counter_value_in_secs, SECS_IN_MIN)
+        else:
+            self.background_color = BLACK
+
+        return self.secs_to_mins_and_render(self.counter_value_in_secs)
+
+    def secs_to_mins_and_render(self, secs):
+        minutes, seconds = divmod(secs, SECS_IN_MIN)
         return self.count_font.render("{:02.0f}:{:05.2f}".format(minutes, seconds), True, WHITE)
 
     def update_display(self, new_text):
         self.display.fill(self.background_color)
         self.display.blit(new_text, TOP_RIGHT_COORDS)
 
-    def toggle_mode(self):
+    def toggle_count_mode(self):
         self.in_count_mode = not self.in_count_mode
         if self.in_count_mode:
             # Get a reference number of ticks to start the timer
             self.start_ticks = pygame.time.get_ticks()
+            self.in_setting_mode = False
         else:
             self.init_counter_value_in_secs = self.counter_value_in_secs
+
+    def append_digit_to_count(self, digit):
+        if self.in_setting_mode:
+            self.init_counter_value_in_secs = self.append_digit_to_existing_count(digit)
+        else:
+            self.init_counter_value_in_secs = digit
+            self.in_setting_mode = True
+
+        self.counter_value_in_secs = self.init_counter_value_in_secs
+
+    def append_digit_to_existing_count(self, digit):
+        five_digit_value = self.get_shown_val_as_string() + str(digit)
+        four_digit_value = five_digit_value[1:]
+        return int(four_digit_value[:2])*60 + int(four_digit_value[2:])
+
+    def get_shown_val_as_string(self):
+        minutes, seconds = divmod(self.counter_value_in_secs, SECS_IN_MIN)
+        return "{:02.0f}{:02.0f}".format(minutes, seconds)
 
     def close(self):
         pygame.quit()
@@ -69,11 +97,10 @@ icon = pygame.image.load("resources/images/hourglass2.png")
 pygame.display.set_icon(icon)
 
 # Create a Timer
-timer = Timer(int(sys.argv[1]))
+timer = Timer()
 
 # Set up the text
-minutes, seconds = divmod(timer.init_counter_value_in_secs, SECS_IN_MIN)
-text = timer.count_font.render("{:02.0f}:{:05.2f}".format(minutes, seconds), True, WHITE)
+text = timer.secs_to_mins_and_render(timer.init_counter_value_in_secs)
 timer.display.blit(text, TOP_RIGHT_COORDS)
 
 # Run the game loop
@@ -82,12 +109,24 @@ while True:
     for event in pygame.event.get():
         if event.type == QUIT:
             timer.close()
+
         elif event.type == KEYDOWN:
             if event.key == K_ESCAPE:
                 timer.close()
+
+            elif event.key == K_SPACE:
+                if timer.counter_value_in_secs != 0:
+                    timer.toggle_count_mode()
+
+            elif event.key in NUMBERS:
+                if not timer.in_count_mode:
+                    timer.append_digit_to_count(int(chr(event.key)))
+                    new_text = timer.secs_to_mins_and_render(timer.counter_value_in_secs)
+                    timer.update_display(new_text)
+
         elif event.type == MOUSEBUTTONDOWN:
             if timer.counter_value_in_secs != 0:
-                timer.toggle_mode()
+                timer.toggle_count_mode()
 
     # Check the mode and act accordingly
     if timer.in_count_mode:
